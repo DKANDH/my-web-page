@@ -1,0 +1,140 @@
+﻿<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>獸設名小遊戲（附音效升級）</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background-color: #FFEB3B;
+      font-family: sans-serif;
+    }
+    #giveNameBtn {
+      padding: 1em 2em;
+      font-size: 1.2em;
+      font-weight: bold;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: linear-gradient(45deg,
+        red, orange, yellow, green, blue, indigo, violet);
+      background-size: 400% 400%;
+      animation: rainbowBG 5s ease infinite;
+    }
+    @keyframes rainbowBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    #result {
+      margin-top: 2em;
+      font-size: 2em;
+      font-weight: bold;
+      text-align: center;
+    }
+    #supplement {
+      margin-top: 0.5em;
+      font-size: 1em;
+      color: #555;
+      max-width: 80%;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <button id="giveNameBtn">點我取獸設名</button>
+  <div id="result"></div>
+  <div id="supplement"></div>
+
+  <script>
+    const btn = document.getElementById('giveNameBtn');
+    const resultDiv = document.getElementById('result');
+    const suppDiv = document.getElementById('supplement');
+
+    const randomNames = [
+      '風火獸', '雷電狐', '翠綠龍', '紫焰貓',
+      '金羽鳥', '玄冰魂', '炫光狼', '暗影虎',
+      '浮雲豹', '赤焰獅',
+      // 新增 30 種
+      '蒼月龍', '夜光鳳', '銀霧鯉', '翠影蝶',
+      '金雷象', '夜魅蛇', '霜牙狼', '星辰蝶',
+      '幻世虎', '幽森豹', '電光蟲', '赤影熊',
+      '流雲鷹', '狂沙象', '碧波鯨', '雷霆貓',
+      '夢歌鳥', '破浪鯊', '幽焰狐', '星河龍',
+      '雪影熊', '銀翼鹿', '黃金狼', '毒藤蠍',
+      '幻羽鷹', '天焰馬', '碧霧鹿', '幻虹獸',
+      '鐵甲蠍', '流火龍'
+    ];
+
+    // 短促「嗶」聲
+    function playBeep() {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 440;
+      gain.gain.value = 0.1;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      setTimeout(() => {
+        osc.stop();
+        ctx.close();
+      }, 50);
+    }
+
+    // 慶祝旋律：三個上揚音符
+    function playCelebrate() {
+      const freqs = [523.25, 659.25, 783.99]; // C5, E5, G5
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      let start = ctx.currentTime;
+      freqs.forEach((f, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = f;
+        gain.gain.value = 0.15;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start + i * 0.2);
+        osc.stop(start + i * 0.2 + 0.18);
+      });
+      setTimeout(() => ctx.close(), freqs.length * 200 + 100);
+    }
+
+    btn.addEventListener('click', () => {
+      resultDiv.textContent = '';
+      suppDiv.textContent = '';
+      btn.disabled = true;
+
+      let count = 0;
+      const maxCycles = 20;
+      const intervalMs = 100;
+
+      const intervalId = setInterval(() => {
+        playBeep();
+        const idx = Math.floor(Math.random() * randomNames.length);
+        resultDiv.textContent = randomNames[idx];
+        count++;
+
+        if (count >= maxCycles) {
+          clearInterval(intervalId);
+          resultDiv.textContent = '白牛汪汪';
+          suppDiv.textContent = '牛叫起來像狗叫，非常出乎意料。';
+          playCelebrate();
+          btn.disabled = false;
+        }
+      }, intervalMs);
+    });
+  </script>
+
+</body>
+</html>
