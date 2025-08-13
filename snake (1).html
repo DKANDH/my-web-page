@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>貪吃蛇 Snake</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121833;
+      --accent: #7dd3fc;
+      --accent-2: #a78bfa;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --good: #34d399;
+      --warn: #fbbf24;
+      --bad: #ef4444;
+      --grid: 24; /* pixel size per cell */
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(1200px 600px at 10% 10%, #0f1533 0%, var(--bg) 45%, #070a17 100%);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans TC", "PingFang TC", "Heiti TC", "Microsoft JhengHei", Arial, sans-serif;
+      display: grid;
+      min-height: 100svh;
+      place-items: center;
+      padding: 24px;
+    }
+    .app {
+      width: 100%;
+      max-width: 720px;
+      display: grid;
+      gap: 16px;
+    }
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      padding: 16px;
+    }
+    h1 {
+      margin: 0;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      font-size: clamp(22px, 3.6vw, 28px);
+    }
+    .row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: space-between;
+    }
+    .stats {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    button {
+      appearance: none;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      transition: transform .06s ease, background .2s ease, border-color .2s ease;
+    }
+    button:hover { background: rgba(255,255,255,0.12); }
+    button:active { transform: translateY(1px) scale(0.99); }
+    .primary { border-color: rgba(125,211,252,0.5); background: linear-gradient(180deg, rgba(125,211,252,0.25), rgba(167,139,250,0.18)); }
+    .danger { border-color: rgba(239,68,68,0.4); background: linear-gradient(180deg, rgba(239,68,68,0.2), rgba(239,68,68,0.08)); }
+    .canvas-wrap {
+      display: grid;
+      gap: 12px;
+      justify-items: center;
+    }
+    canvas {
+      width: min(96vw, 600px);
+      aspect-ratio: 1 / 1;
+      image-rendering: pixelated;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #0b142b, #0a1022);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03), 0 15px 40px rgba(0,0,0,0.45);
+      touch-action: none; /* allow custom swipe */
+    }
+    .dpad {
+      display: grid;
+      grid-template-areas:
+        ". up ."
+        "left . right"
+        ". down .";
+      gap: 8px;
+      user-select: none;
+    }
+    .dpad button {
+      width: 64px; height: 64px; border-radius: 12px; font-size: 16px;
+    }
+    .dpad .up { grid-area: up; }
+    .dpad .down { grid-area: down; }
+    .dpad .left { grid-area: left; }
+    .dpad .right { grid-area: right; }
+    .hint {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card">
+      <div class="row">
+        <h1>貪吃蛇 Snake</h1>
+        <div class="controls">
+          <button id="startBtn" class="primary">開始/暫停 (Space)</button>
+          <button id="resetBtn" class="danger">重新開始 (R)</button>
+        </div>
+      </div>
+      <div class="row">
+        <div class="stats">
+          <span class="badge">分數：<span id="score">0</span></span>
+          <span class="badge">最⾼：<span id="best">0</span></span>
+          <span class="badge">速度：<span id="speed">1x</span></span>
+          <span class="badge">棋盤：<span id="sizeLabel">20×20</span></span>
+        </div>
+        <div class="controls">
+          <label>
+            尺寸
+            <select id="sizeSel">
+              <option value="16">16×16</option>
+              <option value="20" selected>20×20</option>
+              <option value="24">24×24</option>
+              <option value="28">28×28</option>
+              <option value="32">32×32</option>
+            </select>
+          </label>
+          <label>
+            速度
+            <select id="speedSel">
+              <option value="1" selected>1x</option>
+              <option value="1.3">1.3x</option>
+              <option value="1.6">1.6x</option>
+              <option value="2.0">2x</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="card canvas-wrap">
+      <canvas id="game" width="600" height="600" aria-label="Snake Game" role="img"></canvas>
+      <div class="dpad" aria-hidden="false">
+        <button class="up">⬆</button>
+        <button class="left">⬅</button>
+        <button class="right">➡</button>
+        <button class="down">⬇</button>
+      </div>
+      <div class="hint">鍵盤方向鍵 / WASD 操控；手機可用方向鍵或滑動。吃到食物會加速一點點！</div>
+    </div>
+
+    <div class="footer">
+      Made with 💙 — 本頁為單檔離線網頁，直接開啟即可玩。
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById('game');
+      const ctx = canvas.getContext('2d');
+      const startBtn = document.getElementById('startBtn');
+      const resetBtn = document.getElementById('resetBtn');
+      const scoreEl = document.getElementById('score');
+      const bestEl = document.getElementById('best');
+      const speedEl = document.getElementById('speed');
+      const sizeSel = document.getElementById('sizeSel');
+      const speedSel = document.getElementById('speedSel');
+      const sizeLabel = document.getElementById('sizeLabel');
+      const dpad = document.querySelector('.dpad');
+
+      const store = window.localStorage;
+      const BEST_KEY = 'snake_best_v1';
+      let best = parseInt(store.getItem(BEST_KEY) || '0', 10) || 0;
+      bestEl.textContent = best;
+
+      // Game state
+      let N = 20; // grid size
+      let cell = 24; // pixel per cell (auto-fit by canvas size)
+      let snake = [];
+      let dir = { x: 1, y: 0 };
+      let nextDir = { x: 1, y: 0 };
+      let food = { x: 10, y: 10 };
+      let score = 0;
+      let running = false;
+      let gameOver = false;
+      let baseMs = 140; // base tick
+      let tickMs = baseMs;
+      let lastTime = 0;
+      let acc = 0;
+
+      function resizeToCanvas() {
+        // Match canvas CSS size to maintain crisp pixels
+        const size = Math.min(window.innerWidth * 0.96, 600);
+        canvas.style.width = size + 'px';
+        canvas.style.height = size + 'px';
+        // Compute cell size to fit evenly
+        cell = Math.floor(canvas.width / N);
+        sizeLabel.textContent = N + '×' + N;
+      }
+
+      function randInt(max) {
+        return Math.floor(Math.random() * max);
+      }
+
+      function placeFood() {
+        while (true) {
+          const x = randInt(N);
+          const y = randInt(N);
+          if (!snake.some(s => s.x === x && s.y === y)) {
+            food = { x, y };
+            break;
+          }
+        }
+      }
+
+      function resetGame(keepSettings = true) {
+        score = 0;
+        scoreEl.textContent = score;
+        gameOver = false;
+        running = false;
+        dir = { x: 1, y: 0 };
+        nextDir = { x: 1, y: 0 };
+        // Init snake in center
+        const cx = Math.floor(N / 2);
+        const cy = Math.floor(N / 2);
+        snake = [{ x: cx - 1, y: cy }, { x: cx, y: cy }];
+        placeFood();
+        tickMs = baseMs;
+        speedEl.textContent = (baseMs / 140).toFixed(1) + 'x';
+        draw();
+      }
+
+      function drawGrid() {
+        ctx.fillStyle = '#0a1022';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // subtle grid
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= N; i++) {
+          const p = i * cell + 0.5;
+          ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, N * cell); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(N * cell, p); ctx.stroke();
+        }
+      }
+
+      function drawSnake() {
+        for (let i = 0; i < snake.length; i++) {
+          const s = snake[i];
+          const t = i / (snake.length - 1 || 1);
+          const hueA = 0, hueB = 60; // red → yellow
+          const hue = hueA + (hueB - hueA) * t;
+          ctx.fillStyle = `hsl(${hue}deg 80% 60%)`;
+          ctx.fillRect(s.x * cell + 1, s.y * cell + 1, cell - 2, cell - 2);
+        }
+      }
+
+      function drawFood() {
+        // glowing orb
+        const gx = food.x * cell + cell / 2;
+        const gy = food.y * cell + cell / 2;
+        const r = cell * 0.42;
+        const grd = ctx.createRadialGradient(gx, gy, r * 0.1, gx, gy, r);
+        grd.addColorStop(0, 'rgba(125,211,252,0.95)');
+        grd.addColorStop(1, 'rgba(167,139,250,0.15)');
+        ctx.fillStyle = grd;
+        ctx.beginPath(); ctx.arc(gx, gy, r, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#7dd3fc';
+        ctx.fillRect(food.x * cell + 3, food.y * cell + 3, cell - 6, cell - 6);
+      }
+
+      function draw() {
+        drawGrid();
+        drawFood();
+        drawSnake();
+        if (gameOver) {
+          ctx.fillStyle = 'rgba(0,0,0,0.45)';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = '#e5e7eb';
+          ctx.font = 'bold ' + Math.max(22, Math.floor(cell * 0.9)) + 'px system-ui, -apple-system, Segoe UI, Roboto';
+          ctx.textAlign = 'center';
+          ctx.fillText('遊戲結束', canvas.width / 2, canvas.height / 2 - cell);
+          ctx.font = '14px system-ui';
+          ctx.fillText('按下 R 重新開始', canvas.width / 2, canvas.height / 2 + cell * 0.2);
+        }
+      }
+
+      function step(dt) {
+        if (!running || gameOver) return;
+        acc += dt;
+        while (acc >= tickMs) {
+          acc -= tickMs;
+          // apply nextDir but forbid 180° reversals
+          if (nextDir.x !== -dir.x || nextDir.y !== -dir.y) dir = nextDir;
+          const head = { x: snake[snake.length - 1].x + dir.x, y: snake[snake.length - 1].y + dir.y };
+          // wall
+          if (head.x < 0 || head.y < 0 || head.x >= N || head.y >= N) {
+            gameOver = true; running = false; draw(); return;
+          }
+          // self
+          if (snake.some(s => s.x === head.x && s.y === head.y)) {
+            gameOver = true; running = false; draw(); return;
+          }
+          // move
+          snake.push(head);
+          // food?
+          if (head.x === food.x && head.y === food.y) {
+            score += 1;
+            scoreEl.textContent = score;
+            if (score > best) { best = score; bestEl.textContent = best; store.setItem(BEST_KEY, String(best)); }
+            // speed up a bit (to a floor)
+            baseMs = Math.max(70, baseMs - 2);
+            tickMs = baseMs / parseFloat(speedSel.value);
+            speedEl.textContent = (140 / baseMs * parseFloat(speedSel.value)).toFixed(1) + 'x';
+            placeFood();
+          } else {
+            snake.shift();
+          }
+          draw();
+        }
+      }
+
+      function loop(ts) {
+        const dt = ts - lastTime; lastTime = ts;
+        step(dt);
+        requestAnimationFrame(loop);
+      }
+
+      function setDir(dx, dy) {
+        nextDir = { x: dx, y: dy };
+      }
+
+      // Inputs
+      window.addEventListener('keydown', (e) => {
+        const k = e.key.toLowerCase();
+        if (k === ' ' || k === 'spacebar') { toggle(); e.preventDefault(); }
+        if (k === 'r') { resetGame(); e.preventDefault(); }
+        if (k === 'arrowup' || k === 'w') { setDir(0,-1); e.preventDefault(); }
+        if (k === 'arrowdown' || k === 's') { setDir(0, 1); e.preventDefault(); }
+        if (k === 'arrowleft' || k === 'a') { setDir(-1,0); e.preventDefault(); }
+        if (k === 'arrowright' || k === 'd') { setDir(1, 0); e.preventDefault(); }
+      }, { passive: false });
+
+      // D-Pad buttons
+      dpad.querySelector('.up').addEventListener('click', () => setDir(0,-1));
+      dpad.querySelector('.down').addEventListener('click', () => setDir(0,1));
+      dpad.querySelector('.left').addEventListener('click', () => setDir(-1,0));
+      dpad.querySelector('.right').addEventListener('click', () => setDir(1,0));
+
+      // Swipe controls
+      let touchStart = null;
+      canvas.addEventListener('touchstart', (e) => {
+        const t = e.touches[0];
+        touchStart = { x: t.clientX, y: t.clientY };
+      }, { passive: true });
+      canvas.addEventListener('touchmove', (e) => {
+        if (!touchStart) return;
+        const t = e.touches[0];
+        const dx = t.clientX - touchStart.x;
+        const dy = t.clientY - touchStart.y;
+        if (Math.hypot(dx, dy) > 24) {
+          if (Math.abs(dx) > Math.abs(dy)) setDir(Math.sign(dx), 0);
+          else setDir(0, Math.sign(dy));
+          touchStart = null;
+        }
+      }, { passive: true });
+      canvas.addEventListener('touchend', () => touchStart = null, { passive: true });
+
+      function toggle() {
+        if (gameOver) return;
+        running = !running;
+        startBtn.textContent = running ? '暫停 (Space)' : '開始 (Space)';
+      }
+
+      startBtn.addEventListener('click', toggle);
+      resetBtn.addEventListener('click', () => resetGame());
+
+      sizeSel.addEventListener('change', () => {
+        N = parseInt(sizeSel.value, 10);
+        resetGame();
+      });
+      speedSel.addEventListener('change', () => {
+        tickMs = baseMs / parseFloat(speedSel.value);
+        speedEl.textContent = (140 / baseMs * parseFloat(speedSel.value)).toFixed(1) + 'x';
+      });
+
+      window.addEventListener('resize', resizeToCanvas);
+
+      // init
+      resizeToCanvas();
+      resetGame();
+      requestAnimationFrame(loop);
+    })();
+  </script>
+</body>
+</html>
